@@ -13,7 +13,7 @@ import numpy as np
 from tqdm import tqdm
 
 import rospy
-from sensor_msgs import Image
+from sensor_msgs.msg import Image
 
 
 def SpatialCNN(input, is_training=False, output_channels=3, reuse=tf.compat.v1.AUTO_REUSE):
