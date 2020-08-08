@@ -8,15 +8,15 @@ import tensorflow as tf
 import numpy as np
 from utilis import *
 
-def SpatialCNN(input, is_training=True, output_channels=3, reuse=tf.AUTO_REUSE):
-	with tf.variable_scope('block1',reuse=reuse):
-		output = tf.layers.conv2d(input, 128, 3, padding='same', activation=tf.nn.relu)
+def SpatialCNN(input, is_training=True, output_channels=3, reuse=tf.compat.v1.AUTO_REUSE):
+	with tf.compat.v1.variable_scope('block1',reuse=reuse):
+		output = tf.compat.v1.layers.conv2d(input, 128, 3, padding='same', activation=tf.nn.relu)
 	for layers in range(2, 20):
-		with tf.variable_scope('block%d' % layers,reuse=reuse):
-			output = tf.layers.conv2d(output, 64, 3, padding='same', name='conv%d' % layers, use_bias=False)
-			output = tf.nn.relu(tf.layers.batch_normalization(output, training=is_training))
-	with tf.variable_scope('block20', reuse=reuse):
-		output = tf.layers.conv2d(output, output_channels, 3, padding='same', use_bias=False)
+		with tf.compat.v1.variable_scope('block%d' % layers,reuse=reuse):
+			output = tf.compat.v1.layers.conv2d(output, 64, 3, padding='same', name='conv%d' % layers, use_bias=False)
+			output = tf.nn.relu(tf.compat.v1.layers.batch_normalization(output, training=is_training))
+	with tf.compat.v1.variable_scope('block20', reuse=reuse):
+		output = tf.compat.v1.layers.conv2d(output, output_channels, 3, padding='same', use_bias=False)
 	return input - output
 
 def shuffle_in_unison(a, b):
@@ -30,18 +30,18 @@ class denoiser(object):
 		self.sess = sess
 		self.input_c_dim = input_c_dim
 		# build model
-		self.Y_ = tf.placeholder(tf.float32, [None, None, None, self.input_c_dim], name='clean_image')
-		self.is_training = tf.placeholder(tf.bool, name='is_training')
-		self.X = tf.placeholder(tf.float32, [None, None, None, self.input_c_dim], name="noisy_image")
+		self.Y_ = tf.compat.v1.placeholder(tf.float32, [None, None, None, self.input_c_dim], name='clean_image')
+		self.is_training = tf.compat.v1.placeholder(tf.bool, name='is_training')
+		self.X = tf.compat.v1.placeholder(tf.float32, [None, None, None, self.input_c_dim], name="noisy_image")
 		self.Y = SpatialCNN(self.X, is_training=self.is_training)
 		self.loss = (1.0 / batch_size) * tf.nn.l2_loss(self.Y_ - self.Y)
-		self.lr = tf.placeholder(tf.float32, name='learning_rate')
+		self.lr = tf.compat.v1.placeholder(tf.float32, name='learning_rate')
 		self.eva_psnr = tf_psnr(self.Y, self.Y_)
-		optimizer = tf.train.AdamOptimizer(self.lr, name='AdamOptimizer')
-		update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+		optimizer = tf.compat.v1.train.AdamOptimizer(self.lr, name='AdamOptimizer')
+		update_ops = tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.UPDATE_OPS)
 		with tf.control_dependencies(update_ops):
 			self.train_op = optimizer.minimize(self.loss)
-		init = tf.global_variables_initializer()
+		init = tf.compat.v1.global_variables_initializer()
 		self.sess.run(init)
 		print("[*] Initialize model successfully...")
 
@@ -88,11 +88,11 @@ class denoiser(object):
 			start_step = 0
 			print("[*] Not find pretrained model!")
 		# Summary
-		tf.summary.scalar('loss', self.loss)
-		tf.summary.scalar('lr', self.lr)
-		writer = tf.summary.FileWriter('./logs', self.sess.graph)
-		merged = tf.summary.merge_all()
-		summary_psnr = tf.summary.scalar('eva_psnr', self.eva_psnr)
+		tf.compat.v1.summary.scalar('loss', self.loss)
+		tf.compat.v1.summary.scalar('lr', self.lr)
+		writer = tf.compat.v1.summary.FileWriter('./logs', self.sess.graph)
+		merged = tf.compat.v1.summary.merge_all()
+		summary_psnr = tf.compat.v1.summary.scalar('eva_psnr', self.eva_psnr)
 		print("[*] Start training, with start epoch %d start iter %d : " % (start_epoch, iter_num))
 		start_time = time.time()
 		self.evaluate(iter_num, eval_data_noisy, eval_data, summary_merged=summary_psnr,
@@ -120,7 +120,7 @@ class denoiser(object):
 	def test(self, eval_data_noisy, eval_data, ckpt_dir, save_dir):
 		"""Test Spatial-CNN"""
 		# init variables
-		tf.global_variables_initializer().run()
+		tf.compat.v1.global_variables_initializer().run()
 
 		assert len(eval_data) != 0, 'No testing data!'
 		load_model_status, global_step = self.load(ckpt_dir)
@@ -148,7 +148,7 @@ class denoiser(object):
 		print("--- Elapsed time: %.4f" %(time.time()-start))
 
 	def save(self, iter_num, ckpt_dir, model_name='Spatial-CNN'):
-		saver = tf.train.Saver()
+		saver = tf.compat.v1.train.Saver()
 		checkpoint_dir = ckpt_dir
 		if not os.path.exists(checkpoint_dir):
 			os.makedirs(checkpoint_dir)
@@ -157,7 +157,7 @@ class denoiser(object):
 
 	def load(self, checkpoint_dir):
 		print("[*] Reading checkpoint...")
-		saver = tf.train.Saver()
+		saver = tf.compat.v1.train.Saver()
 		ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
 		if ckpt and ckpt.model_checkpoint_path:
 			full_path = tf.train.latest_checkpoint(checkpoint_dir)
@@ -168,8 +168,8 @@ class denoiser(object):
 			return False, 0
 
 def tf_psnr(im1, im2): # PSNR function for tensors
-	mse = tf.losses.mean_squared_error(labels=im2 * 255.0, predictions=im1 * 255.0)
-	return 10.0 * (tf.log(255.0 ** 2 / mse) / tf.log(10.0))
+	mse = tf.compat.v1.losses.mean_squared_error(labels=im2 * 255.0, predictions=im1 * 255.0)
+	return 10.0 * (tf.math.log(255.0 ** 2 / mse) / tf.math.log(10.0))
 
 def cal_psnr(im1, im2): # PSNR function for 0-255 values
 	mse = ((im1.astype(np.float) - im2.astype(np.float)) ** 2).mean()

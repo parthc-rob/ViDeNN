@@ -10,16 +10,16 @@ import os
 from utilis import *
 from tensorflow.python.tools.inspect_checkpoint import print_tensors_in_checkpoint_file
 
-def Temp3CNN(input, is_training=True, output_channels=3, reuse=tf.AUTO_REUSE):
+def Temp3CNN(input, is_training=True, output_channels=3, reuse=tf.compat.v1.AUTO_REUSE):
 	input_middle = input[:,:,:,3:6]
-	with tf.variable_scope('temp-block1',reuse=reuse):
-		output = tf.layers.conv2d(input, 128, 3, padding='same', activation=tf.nn.leaky_relu)
+	with tf.compat.v1.variable_scope('temp-block1',reuse=reuse):
+		output = tf.compat.v1.layers.conv2d(input, 128, 3, padding='same', activation=tf.nn.leaky_relu)
 	for layers in range(2, 20):
-		with tf.variable_scope('temp-block%d' % layers,reuse=reuse):
-			output = tf.layers.conv2d(output, 64, 3, padding='same', name='conv%d' % layers, use_bias=False)
+		with tf.compat.v1.variable_scope('temp-block%d' % layers,reuse=reuse):
+			output = tf.compat.v1.layers.conv2d(output, 64, 3, padding='same', name='conv%d' % layers, use_bias=False)
 			output = tf.nn.leaky_relu(output)
-	with tf.variable_scope('temp-block20', reuse=reuse):
-		output = tf.layers.conv2d(output, output_channels, 3, padding='same', use_bias=False)
+	with tf.compat.v1.variable_scope('temp-block20', reuse=reuse):
+		output = tf.compat.v1.layers.conv2d(output, output_channels, 3, padding='same', use_bias=False)
 	return input_middle - output
 
 def shuffle_in_unison(a, b):
@@ -33,18 +33,18 @@ class TemporalDenoiser(object):
 		self.sess = sess
 		self.input_c_dim = input_c_dim
 		# build model
-		self.Y_ = tf.placeholder(tf.float32, [None, None, None, self.input_c_dim],name='clean_frames')
-		self.is_training = tf.placeholder(tf.bool, name='is_training')
-		self.X = tf.placeholder(tf.float32, [None, None, None, self.input_c_dim],name='noisy_frames')
+		self.Y_ = tf.compat.v1.placeholder(tf.float32, [None, None, None, self.input_c_dim],name='clean_frames')
+		self.is_training = tf.compat.v1.placeholder(tf.bool, name='is_training')
+		self.X = tf.compat.v1.placeholder(tf.float32, [None, None, None, self.input_c_dim],name='noisy_frames')
 		self.Y = Temp3CNN(self.X, is_training=self.is_training)
 		self.loss = (1.0 / batch_size) * tf.nn.l2_loss(self.Y_[:,:,:,3:6] - self.Y)
-		self.lr = tf.placeholder(tf.float32, name='learning_rate')
+		self.lr = tf.compat.v1.placeholder(tf.float32, name='learning_rate')
 		self.eva_psnr = tf_psnr(self.Y, self.Y_[:,:,:,3:6])
-		optimizer = tf.train.AdamOptimizer(self.lr, name='AdamOptimizer')
-		update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+		optimizer = tf.compat.v1.train.AdamOptimizer(self.lr, name='AdamOptimizer')
+		update_ops = tf.compat.v1.get_collection(tf.compat.v1.GraphKeys.UPDATE_OPS)
 		with tf.control_dependencies(update_ops):
 			self.train_op = optimizer.minimize(self.loss)
-		init = tf.global_variables_initializer()
+		init = tf.compat.v1.global_variables_initializer()
 		self.sess.run(init)
 		print("[*] Initialize model successfully...")
 
@@ -65,10 +65,10 @@ class TemporalDenoiser(object):
 			start_step = 0
 			print("[*] No pretrained model found!")
 		# make summary
-		tf.summary.scalar('loss', self.loss)
-		tf.summary.scalar('lr', self.lr)
-		writer = tf.summary.FileWriter('./logs', self.sess.graph)
-		merged = tf.summary.merge_all()
+		tf.compat.v1.summary.scalar('loss', self.loss)
+		tf.compat.v1.summary.scalar('lr', self.lr)
+		writer = tf.compat.v1.summary.FileWriter('./logs', self.sess.graph)
+		merged = tf.compat.v1.summary.merge_all()
 		print("[*] Start training, with start epoch %d start iter %d : " % (start_epoch, iter_num))
 		start_time = time.time()
 		for epoch in range(start_epoch, epoch):
@@ -90,7 +90,7 @@ class TemporalDenoiser(object):
 		print("[*] Finish training.")
 
 	def save(self, iter_num, ckpt_dir, model_name='Temp3-CNN'):
-		saver = tf.train.Saver()
+		saver = tf.compat.v1.train.Saver()
 		checkpoint_dir = ckpt_dir
 		if not os.path.exists(checkpoint_dir):
 			os.makedirs(checkpoint_dir)
@@ -99,7 +99,7 @@ class TemporalDenoiser(object):
 
 	def load(self, checkpoint_dir):
 		print("[*] Reading checkpoint...")
-		saver = tf.train.Saver()
+		saver = tf.compat.v1.train.Saver()
 		ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
 		if ckpt and ckpt.model_checkpoint_path:
 			full_path = tf.train.latest_checkpoint(checkpoint_dir)
@@ -112,7 +112,7 @@ class TemporalDenoiser(object):
 	def test(self, noisy_total, eval_data, ckpt_dir, save_dir):
 		"""Test Temp3-CNN"""
 		# init variables
-		tf.global_variables_initializer().run()
+		tf.compat.v1.global_variables_initializer().run()
 		assert len(eval_data) != 0, 'No testing data!'
 		load_model_status, global_step = self.load(ckpt_dir)
 		assert load_model_status == True, '[!] Load weights FAILED...'

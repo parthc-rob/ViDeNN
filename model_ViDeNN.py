@@ -9,46 +9,46 @@ import cv2
 import numpy as np
 from tqdm import tqdm
 
-def SpatialCNN(input, is_training=False, output_channels=3, reuse=tf.AUTO_REUSE):
-	with tf.variable_scope('block1',reuse=reuse):
-		output = tf.layers.conv2d(input, 128, 3, padding='same', activation=tf.nn.relu)
+def SpatialCNN(input, is_training=False, output_channels=3, reuse=tf.compat.v1.AUTO_REUSE):
+	with tf.compat.v1.variable_scope('block1',reuse=reuse):
+		output = tf.compat.v1.layers.conv2d(input, 128, 3, padding='same', activation=tf.nn.relu)
 	for layers in range(2, 20):
-		with tf.variable_scope('block%d' % layers,reuse=reuse):
-			output = tf.layers.conv2d(output, 64, 3, padding='same', name='conv%d' % layers, use_bias=False)
-			output = tf.nn.relu(tf.layers.batch_normalization(output, training=is_training))
-	with tf.variable_scope('block20', reuse=reuse):
-		output = tf.layers.conv2d(output, output_channels, 3, padding='same', use_bias=False)
+		with tf.compat.v1.variable_scope('block%d' % layers,reuse=reuse):
+			output = tf.compat.v1.layers.conv2d(output, 64, 3, padding='same', name='conv%d' % layers, use_bias=False)
+			output = tf.nn.relu(tf.compat.v1.layers.batch_normalization(output, training=is_training))
+	with tf.compat.v1.variable_scope('block20', reuse=reuse):
+		output = tf.compat.v1.layers.conv2d(output, output_channels, 3, padding='same', use_bias=False)
 	return input - output
 
-def Temp3CNN(input, is_training=False, output_channels=3, reuse=tf.AUTO_REUSE):
+def Temp3CNN(input, is_training=False, output_channels=3, reuse=tf.compat.v1.AUTO_REUSE):
 	input_middle = input[:,:,:,3:6]
-	with tf.variable_scope('temp-block1',reuse=reuse):
-		output = tf.layers.conv2d(input, 128, 3, padding='same', activation=tf.nn.leaky_relu)
+	with tf.compat.v1.variable_scope('temp-block1',reuse=reuse):
+		output = tf.compat.v1.layers.conv2d(input, 128, 3, padding='same', activation=tf.nn.leaky_relu)
 	for layers in range(2, 20):
-		with tf.variable_scope('temp-block%d' % layers,reuse=reuse):
-			output = tf.layers.conv2d(output, 64, 3, padding='same', name='conv%d' % layers, use_bias=False)
+		with tf.compat.v1.variable_scope('temp-block%d' % layers,reuse=reuse):
+			output = tf.compat.v1.layers.conv2d(output, 64, 3, padding='same', name='conv%d' % layers, use_bias=False)
 			output = tf.nn.leaky_relu(output)
-	with tf.variable_scope('temp-block20', reuse=reuse):
-		output = tf.layers.conv2d(output, output_channels, 3, padding='same', use_bias=False)
+	with tf.compat.v1.variable_scope('temp-block20', reuse=reuse):
+		output = tf.compat.v1.layers.conv2d(output, output_channels, 3, padding='same', use_bias=False)
 	return input_middle - output
 
 class ViDeNN(object):
 	def __init__(self, sess):
 		self.sess = sess
 		# build model
-		self.Y_ = tf.placeholder(tf.float32, [None, None, None, 3],name='clean_image')
-		self.X = tf.placeholder(tf.float32, [None, None, None, 3],name='noisy_image')
+		self.Y_ = tf.compat.v1.placeholder(tf.float32, [None, None, None, 3],name='clean_image')
+		self.X = tf.compat.v1.placeholder(tf.float32, [None, None, None, 3],name='noisy_image')
 		self.Y = SpatialCNN(self.X)
-		self.Y_frames = tf.placeholder(tf.float32, [None, None, None, 9],name='clean_frames')
-		self.Xframes = tf.placeholder(tf.float32, [None, None, None, 9],name='noisy_frames')
+		self.Y_frames = tf.compat.v1.placeholder(tf.float32, [None, None, None, 9],name='clean_frames')
+		self.Xframes = tf.compat.v1.placeholder(tf.float32, [None, None, None, 9],name='noisy_frames')
 		self.Yframes = Temp3CNN(self.Xframes)
-		init = tf.global_variables_initializer()
+		init = tf.compat.v1.global_variables_initializer()
 		self.sess.run(init)
 		print("[*] Initialize model successfully...")
 
 	def denoise(self, eval_files, eval_files_noisy, print_psnr, ckpt_dir, save_dir):
 		# init variables
-		tf.global_variables_initializer().run()
+		tf.compat.v1.global_variables_initializer().run()
 		assert len(eval_files) != 0, '[!] No testing data!'
 		if ckpt_dir is None:
 			full_path = tf.train.latest_checkpoint('./Temp3-CNN/ckpt')
@@ -56,11 +56,11 @@ class ViDeNN(object):
 				print('[!] No Temp3-CNN checkpoint!')
 				quit()
 			vars_to_restore_temp3CNN = {}
-			for i in range(len(tf.global_variables())):
-				if tf.global_variables()[i].name[0] != 'b':
-					a = tf.global_variables()[i].name.split(':')[0]
-					vars_to_restore_temp3CNN[a] = tf.global_variables()[i]
-			saver_t = tf.train.Saver(var_list=vars_to_restore_temp3CNN)
+			for i in range(len(tf.compat.v1.global_variables())):
+				if tf.compat.v1.global_variables()[i].name[0] != 'b':
+					a = tf.compat.v1.global_variables()[i].name.split(':')[0]
+					vars_to_restore_temp3CNN[a] = tf.compat.v1.global_variables()[i]
+			saver_t = tf.compat.v1.train.Saver(var_list=vars_to_restore_temp3CNN)
 			saver_t.restore(self.sess, full_path)
 	
 			full_path = tf.train.latest_checkpoint('./Spatial-CNN/ckpt_awgn')
@@ -68,11 +68,11 @@ class ViDeNN(object):
 				print('[!] No Spatial-CNN checkpoint!')
 				quit()
 			vars_to_restore_spatialCNN = {}
-			for i in range(len(tf.global_variables())):
-				if tf.global_variables()[i].name[0] != 't':
-					a = tf.global_variables()[i].name.split(':')[0]
-					vars_to_restore_spatialCNN[a] = tf.global_variables()[i]
-			saver_s = tf.train.Saver(var_list=vars_to_restore_spatialCNN)
+			for i in range(len(tf.compat.v1.global_variables())):
+				if tf.compat.v1.global_variables()[i].name[0] != 't':
+					a = tf.compat.v1.global_variables()[i].name.split(':')[0]
+					vars_to_restore_spatialCNN[a] = tf.compat.v1.global_variables()[i]
+			saver_s = tf.compat.v1.train.Saver(var_list=vars_to_restore_spatialCNN)
 			saver_s.restore(self.sess, full_path)
 		else:
 			load_model_status, _ = self.load(ckpt_dir)
@@ -174,7 +174,7 @@ class ViDeNN(object):
 
 	def load(self, checkpoint_dir):
 		print("[*] Reading checkpoint...")
-		saver = tf.train.Saver()
+		saver = tf.compat.v1.train.Saver()
 		ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
 		if ckpt and ckpt.model_checkpoint_path:
 			full_path = tf.train.latest_checkpoint(checkpoint_dir)

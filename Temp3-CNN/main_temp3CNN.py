@@ -69,8 +69,8 @@ def main(_):
 	if args.use_gpu:
 		# added to control the gpu memory
 		print("GPU\n")
-		gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.7)
-		with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
+		gpu_options = tf.compat.v1.GPUOptions(per_process_gpu_memory_fraction=0.7)
+		with tf.compat.v1.Session(config=tf.compat.v1.ConfigProto(gpu_options=gpu_options)) as sess:
 			model = TemporalDenoiser(sess)
 			if args.phase == 'train':
 				denoiserTrain(model, lr=lr)
@@ -81,7 +81,7 @@ def main(_):
 				exit(0)
 	else:
 		print("CPU\n")
-		with tf.Session() as sess:
+		with tf.compat.v1.Session() as sess:
 			model = TemporalDenoiser(sess)
 			if args.phase == 'train':
 				denoiserTrain(model, lr=lr)
@@ -93,4 +93,4 @@ def main(_):
 
 
 if __name__ == '__main__':
-	tf.app.run()
+	tf.compat.v1.app.run()
