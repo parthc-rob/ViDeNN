@@ -95,9 +95,12 @@ class ViDeNN(object):
         print("[*] Model restore successfully!")
 
 
-        self.pub = rospy.Publisher('denoised_image', Image, queue_size=3)
+        topic_image_out = rospy.get_param('~topic_image_out')
+        self.pub = rospy.Publisher(topic_image_out, Image, queue_size=3)
         print "....publisher initialized"
-        rospy.Subscriber('/stereo/left/image_rect', Image, self.callback)
+
+        topic_image_in = rospy.get_param('~topic_image_in')
+        rospy.Subscriber(topic_image_in, Image, self.callback)
         rospy.spin()
 
     def callback(self, msg):
@@ -109,12 +112,19 @@ class ViDeNN(object):
         #     twist=TwistWithCovariance(Twist(msg.state.velocity))
         # )
         # self.pub(l2_localized)
-
+        print self.bridge.imgmsg_to_cv2(msg, desired_encoding='passthrough').shape
+        # print cv2.cvtColor(
+        #     self.bridge.imgmsg_to_cv2(msg, desired_encoding='passthrough')
+        #     , cv2.COLOR_GRAY2RGB
+        #     )
         # deque of cvMat images
         self.input_img.append(
-            cv2.cvtColor(
-                self.bridge.imgmsg_to_cv2(msg, desired_encoding='passthrough'), cv2.COLOR_GRAY2RGB
-                         )
+             cv2.cvtColor(
+               self.bridge.imgmsg_to_cv2(msg, desired_encoding='passthrough')
+                , cv2.COLOR_BGR2RGB
+                # , cv2.COLOR_GRAY2RGB # stereo_img_rect is grayscale for other purposes..??? used by elas_ros
+                ## makes this node depend on output of elas_ros..
+                )
             )
         if len(self.input_img) > 3:
             self.input_img.popleft()
@@ -154,7 +164,7 @@ class ViDeNN(object):
 
                     print "\n dataslice difference\t"
                     print (noisy[400:403, 400:403, :]*255 - temp_clean_image[400:403, 400:403, :])
-                    clean_image = ndimage.rotate(clean_image.astype(np.uint8), 90)
+                    clean_image = clean_image.astype(np.uint8)
 
                     #clean_image = cv2.cvtColor(clean_image, cv2.COLOR_RGB2GRAY)
                     rosimg_clean_image = self.bridge.cv2_to_imgmsg(clean_image, encoding="rgb8")
@@ -194,7 +204,7 @@ class ViDeNN(object):
                 temp_clean_image = np.squeeze(np.asarray(temp_clean_image))
                 clean_image = temp_clean_image*255
 
-                clean_image = ndimage.rotate(clean_image.astype(np.uint8), 90)
+                clean_image = clean_image.astype(np.uint8)
 
                 # clean_image = cv2.cvtColor(clean_image, cv2.COLOR_RGB2GRAY)
                 rosimg_clean_image = self.bridge.cv2_to_imgmsg(clean_image, encoding="rgb8")
